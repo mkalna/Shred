@@ -656,6 +656,7 @@ function fmtServing(amount,unit,name){
 function portionText(meal){
   return meal.ing.map(i=>fmtServing(i.a,i.u,i.n)).join(" · ");
 }
+async function renderGrocery(){
   const wk=grocWeek;
   document.getElementById("gWkNum").textContent="Week "+wk;
   const dd=daysInWeek(wk);
