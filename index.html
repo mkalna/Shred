@@ -132,6 +132,7 @@
   .meal-tag{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--signal)}
   .meal-cal{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--slate)}
   .meal-name{font-size:14px;font-weight:500;line-height:1.35}
+  .meal-portions{font-size:12px;color:var(--slate);margin-top:5px;line-height:1.4}
   .meal-macros{display:flex;gap:14px;margin-top:9px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--slate)}
   .meal-macros b{color:var(--paper)}
   .day-macros{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
@@ -540,6 +541,7 @@ async function openDay(d){
   document.getElementById("dMeals").innerHTML=meals.map(m=>`
     <div class="meal"><div class="meal-top"><span class="meal-tag">${m.tag}</span><span class="meal-cal">${m.cal} cal</span></div>
     <div class="meal-name">${m.name}</div>
+    <div class="meal-portions">${portionText(m)}</div>
     <div class="meal-macros"><span>P <b>${m.p}</b></span><span>C <b>${m.c}</b></span><span>F <b>${m.f}</b></span></div></div>`).join("");
   if(isRefeed(d)){
     document.getElementById("dMeals").insertAdjacentHTML("afterbegin",
@@ -625,7 +627,35 @@ function fmtQty(amount,unit){
   if(unit==="tbsp"){return a+" tbsp";}
   return a+" "+unit;
 }
-async function renderGrocery(){
+
+/* Per-serving portion string for a single meal, e.g. "8 oz chicken breast · ⅓ cup jasmine rice".
+   Uses fractions for readability and gets singular/plural right. */
+function fmtServing(amount,unit,name){
+  const fr={0.25:"¼",0.33:"⅓",0.5:"½",0.66:"⅔",0.75:"¾",1.5:"1½"};
+  let a=Math.round(amount*100)/100;
+  let amt=fr[a]!==undefined?fr[a]:a;
+  let nm=name.toLowerCase();
+  const plural=a>1;                 // >1 pluralizes; fractions (<1) and exactly 1 stay singular
+  if(unit==="oz")return amt+" oz "+nm;
+  if(unit==="tbsp")return amt+" tbsp "+nm;
+  if(unit==="cup")return amt+" cup"+(plural?"s":"")+" "+nm;
+  if(unit==="scoop")return amt+" scoop"+(plural?"s":"")+" "+nm;
+  if(unit==="slice")return amt+" slice"+(plural?"s":"")+" "+nm;
+  if(unit==="stalk")return amt+" stalk"+(plural?"s":"")+" "+nm;
+  if(unit==="ea"){                  // count items: "6 egg whites", "1 banana", "1 bell pepper"
+    let word=nm;
+    if(a===1){                      // singularize names stored as plural when qty is exactly 1
+      if(/tomatoes$/.test(word)) word=word.replace(/es$/,"");        // tomatoes -> tomato
+      else if(/(peppers|cakes|eggs)$/.test(word)) word=word.slice(0,-1); // drop trailing s
+    } else if(plural && !/s$/.test(word) && !/o$/.test(word)) word=word+"s";
+    else if(plural && /o$/.test(word)) word=word+"es";               // potato -> potatoes
+    return amt+" "+word;
+  }
+  return amt+" "+unit+" "+nm;
+}
+function portionText(meal){
+  return meal.ing.map(i=>fmtServing(i.a,i.u,i.n)).join(" · ");
+}
   const wk=grocWeek;
   document.getElementById("gWkNum").textContent="Week "+wk;
   const dd=daysInWeek(wk);
