@@ -439,20 +439,29 @@ function weekOf(d){return Math.ceil(d/7);}          // week 1..9 (day 60 -> week
 function daysInWeek(wk){const s=(wk-1)*7+1;const arr=[];for(let i=0;i<7;i++){const dd=s+i;if(dd<=60)arr.push(dd);}return arr;}
 const TOTAL_WEEKS=Math.ceil(60/7);
 
-/* ============ STORAGE ============ */
+/* ============ STORAGE ============
+   Uses the browser's localStorage so your logs save on your own device,
+   whether the site is hosted on GitHub Pages, opened locally, or anywhere.
+   Returns the same {value:string} shape the rest of the code expects. */
+const store={
+  async get(k){try{const v=localStorage.getItem(k);return v===null?null:{value:v};}catch(e){return null;}},
+  async set(k,v){try{localStorage.setItem(k,v);return{value:v};}catch(e){return null;}},
+  async delete(k){try{localStorage.removeItem(k);}catch(e){}},
+};
+
 const KEY="shred60:day:";
 const GKEY="shred60:groc:";   // per-week checked items
 let cache={}, grocCache={}, currentDay=1, viewWeek=1, grocWeek=1;
 
-async function loadDay(d){if(cache[d])return cache[d];try{const r=await window.storage.get(KEY+d);cache[d]=r?JSON.parse(r.value):blankLog();}catch(e){cache[d]=blankLog();}return cache[d];}
+async function loadDay(d){if(cache[d])return cache[d];try{const r=await store.get(KEY+d);cache[d]=r?JSON.parse(r.value):blankLog();}catch(e){cache[d]=blankLog();}return cache[d];}
 function blankLog(){return{protein:"",carbs:"",fat:"",cals:"",sleep:"",weight:"",workout:false,run:false,notes:""};}
 let saveTimer=null;
-async function saveDay(d){setStatus("Saving…");try{await window.storage.set(KEY+d,JSON.stringify(cache[d]));setStatus("Saved",true);}catch(e){setStatus("Save failed");}refreshTrack();refreshSummary();renderWeekGrid();}
+async function saveDay(d){setStatus("Saving…");try{await store.set(KEY+d,JSON.stringify(cache[d]));setStatus("Saved",true);}catch(e){setStatus("Save failed");}refreshTrack();refreshSummary();renderWeekGrid();}
 function queueSave(d){clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveDay(d),400);}
 function setStatus(t,s){const el=document.getElementById("dStatus");if(!el)return;el.textContent=t;el.classList.toggle("saved",!!s);}
 
-async function loadGroc(wk){if(grocCache[wk])return grocCache[wk];try{const r=await window.storage.get(GKEY+wk);grocCache[wk]=r?JSON.parse(r.value):{};}catch(e){grocCache[wk]={};}return grocCache[wk];}
-async function saveGroc(wk){try{await window.storage.set(GKEY+wk,JSON.stringify(grocCache[wk]));}catch(e){}}
+async function loadGroc(wk){if(grocCache[wk])return grocCache[wk];try{const r=await store.get(GKEY+wk);grocCache[wk]=r?JSON.parse(r.value):{};}catch(e){grocCache[wk]={};}return grocCache[wk];}
+async function saveGroc(wk){try{await store.set(GKEY+wk,JSON.stringify(grocCache[wk]));}catch(e){}}
 
 /* ============ COMPLETION ============ */
 function dayIsComplete(d){const l=cache[d];if(!l)return false;const t=targetsFor(d);const sp=workoutFor(d);const proteinOK=Number(l.protein)>=t.protein*0.9&&l.protein!=="";const sleepOK=Number(l.sleep)>=7&&l.sleep!=="";const workoutOK=sp.rest?true:l.workout;return proteinOK&&sleepOK&&workoutOK;}
@@ -681,8 +690,8 @@ document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>swit
 /* ============ RESET ============ */
 document.getElementById("resetBtn").addEventListener("click",async()=>{
   if(!confirm("Clear all logged data and grocery checks? This can't be undone."))return;
-  for(let d=1;d<=60;d++){try{await window.storage.delete(KEY+d);}catch(e){}cache[d]=blankLog();}
-  for(let w=1;w<=TOTAL_WEEKS;w++){try{await window.storage.delete(GKEY+w);}catch(e){}grocCache[w]={};}
+  for(let d=1;d<=60;d++){try{await store.delete(KEY+d);}catch(e){}cache[d]=blankLog();}
+  for(let w=1;w<=TOTAL_WEEKS;w++){try{await store.delete(GKEY+w);}catch(e){}grocCache[w]={};}
   document.getElementById("daily").classList.remove("open");
   renderWeekGrid();refreshTrack();refreshSummary();
 });
